@@ -14,8 +14,8 @@
 - [BOOTH（無料版 0 円）][booth-url]
 - [X 固定ポスト][x-pinned-url]
 
-[articles-url]: https://example.com/TODO
-[booth-url]: https://example.com/TODO
+[articles-url]: https://zenn.dev/ga14tools?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=articles
+[booth-url]: https://ga14tools.booth.pm?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=booth
 [x-pinned-url]: https://example.com/TODO
 
 ---
