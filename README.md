@@ -16,7 +16,7 @@
 
 [articles-url]: https://zenn.dev/ga14tools?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=articles
 [booth-url]: https://ga14tools.booth.pm?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=booth
-[x-pinned-url]: https://example.com/TODO
+[x-pinned-url]: https://x.com/ga14tools/status/2022527250630086948?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=x-pinned
 
 ---
 
