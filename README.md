@@ -1,6 +1,5 @@
 > **English**: This is a Japanese-only Claude Code skill kit.
-> For English users, see `README.en.md` (TBD).
-> EN version may be released after Phase 1.5 validation.
+> For English users, see [`README.en.md`](README.en.md).
 
 # Claude Code 導入キット 日本語版
 
@@ -8,15 +7,9 @@
 
 > **このキットのスキルは手動呼び出し専用です。** Claude が自発的に提案することはありません。使いたいスキルは `/skill-name` で直接呼び出してください。
 
-### リンク
+### 関連記事
 
-- [記事一覧（Zenn / Qiita）][articles-url]
-- [BOOTH（無料版 0 円）][booth-url]
-- [X 固定ポスト][x-pinned-url]
-
-[articles-url]: https://zenn.dev/ga14tools?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=articles
-[booth-url]: https://ga14tools.booth.pm?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=booth
-[x-pinned-url]: https://x.com/ga14tools/status/2022527250630086948?utm_source=github&utm_medium=readme&utm_campaign=kit-ja-v1&utm_content=x-pinned
+- [Claude Code の使い方・スキル解説（Zenn）](https://zenn.dev/ga14tools)
 
 ---
 
@@ -25,9 +18,15 @@
 ### 1. コピー
 
 ```bash
-# kit の .claude/ フォルダをプロジェクトルートにコピー
+# macOS / Linux / Git Bash
 cp -r .claude/ /path/to/your-project/.claude/
 cp CLAUDE.md /path/to/your-project/CLAUDE.md
+```
+
+```powershell
+# Windows (PowerShell)
+Copy-Item -Recurse .claude\ \path\to\your-project\.claude\
+Copy-Item CLAUDE.md \path\to\your-project\CLAUDE.md
 ```
 
 ### 2. CLAUDE.md を編集
