@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pre-commit hook: lint / format / type check (軽量)
+# =============================================================================
+# 設計原則:
+#   - opt-in: デフォルト無効（手動でインストールが必要）
+#   - ネットワークアクセスなし
+#   - 短く監査しやすいスクリプト
+#   - 該当ツールが見つからない場合は何もせず成功終了
+#
+# 無効化: SKIP_HOOKS=1 git commit -m "message"
+# 個別無効化: SKIP_PRE_COMMIT=1 git commit -m "message"
+# =============================================================================
+
+set -euo pipefail
+
+# --- バイパス ---
+if [ "${SKIP_HOOKS:-0}" = "1" ] || [ "${SKIP_PRE_COMMIT:-0}" = "1" ]; then
+  echo "[pre-commit] スキップされました"
+  exit 0
+fi
+
+# --- ステージングされたファイルの取得 ---
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+EXIT_CODE=0
+
+# --- Node.js プロジェクト検出 ---
+if [ -f "package.json" ]; then
+  # ESLint
+  if command -v npx >/dev/null 2>&1; then
+    JS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$' || true)
+    if [ -n "$JS_FILES" ] && { [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f ".eslintrc.yml" ] || [ -f ".eslintrc.cjs" ] || [ -f "eslint.config.js" ] || [ -f "eslint.config.mjs" ]; }; then
+      echo "[pre-commit] ESLint を実行中..."
+      echo "$JS_FILES" | tr '\n' '\0' | xargs -0 npx eslint --max-warnings=0 2>/dev/null || EXIT_CODE=1
+    fi
+
+    # Prettier
+    if [ -f ".prettierrc" ] || [ -f ".prettierrc.json" ] || [ -f ".prettierrc.js" ] || [ -f "prettier.config.js" ]; then
+      PRETTIER_FILES=$(echo "$STAGED_FILES" | grep -E '\.(js|jsx|ts|tsx|css|scss|json|md|yml|yaml)$' || true)
+      if [ -n "$PRETTIER_FILES" ]; then
+        echo "[pre-commit] Prettier を実行中..."
+        echo "$PRETTIER_FILES" | tr '\n' '\0' | xargs -0 npx prettier --check 2>/dev/null || EXIT_CODE=1
+      fi
+    fi
+
+    # TypeScript
+    if [ -f "tsconfig.json" ]; then
+      TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
+      if [ -n "$TS_FILES" ]; then
+        echo "[pre-commit] TypeScript 型チェックを実行中..."
+        npx tsc --noEmit 2>/dev/null || EXIT_CODE=1
+      fi
+    fi
+  fi
+fi
+
+# --- Python プロジェクト検出 ---
+if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ] || [ -f "requirements.txt" ]; then
+  PY_FILES=$(echo "$STAGED_FILES" | grep -E '\.py$' || true)
+  if [ -n "$PY_FILES" ]; then
+    # ruff (高速な Python リンター)
+    if command -v ruff >/dev/null 2>&1; then
+      echo "[pre-commit] ruff を実行中..."
+      echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff check 2>/dev/null || EXIT_CODE=1
+      echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff format --check 2>/dev/null || EXIT_CODE=1
+    # flake8 へのフォールバック
+    elif command -v flake8 >/dev/null 2>&1; then
+      echo "[pre-commit] flake8 を実行中..."
+      echo "$PY_FILES" | tr '\n' '\0' | xargs -0 flake8 2>/dev/null || EXIT_CODE=1
+    fi
+
+    # mypy (型チェック)
+    if command -v mypy >/dev/null 2>&1; then
+      echo "[pre-commit] mypy を実行中..."
+      echo "$PY_FILES" | tr '\n' '\0' | xargs -0 mypy --ignore-missing-imports 2>/dev/null || EXIT_CODE=1
+    fi
+  fi
+fi
+
+# --- Go プロジェクト検出 ---
+if [ -f "go.mod" ]; then
+  GO_FILES=$(echo "$STAGED_FILES" | grep -E '\.go$' || true)
+  if [ -n "$GO_FILES" ]; then
+    # gofmt
+    if command -v gofmt >/dev/null 2>&1; then
+      echo "[pre-commit] gofmt を実行中..."
+      UNFORMATTED=$(gofmt -l $GO_FILES 2>/dev/null || true)
+      if [ -n "$UNFORMATTED" ]; then
+        echo "[pre-commit] フォーマットされていないファイル:"
+        echo "$UNFORMATTED"
+        EXIT_CODE=1
+      fi
+    fi
+
+    # go vet
+    if command -v go >/dev/null 2>&1; then
+      echo "[pre-commit] go vet を実行中..."
+      go vet ./... 2>/dev/null || EXIT_CODE=1
+    fi
+  fi
+fi
+
+# --- 結果 ---
+if [ $EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] チェックに失敗しました。修正してから再度コミットしてください。"
+  echo "[pre-commit] スキップするには: SKIP_PRE_COMMIT=1 git commit -m \"message\""
+fi
+
+exit $EXIT_CODE

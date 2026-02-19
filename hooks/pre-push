@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pre-push hook: テスト実行 + シークレットスキャン
+# =============================================================================
+# 設計原則:
+#   - opt-in: デフォルト無効（手動でインストールが必要）
+#   - ネットワークアクセスなし
+#   - 短く監査しやすいスクリプト
+#   - テストランナーが見つからない場合は何もせず成功終了
+#
+# 無効化: SKIP_HOOKS=1 git push
+# 個別無効化: SKIP_PRE_PUSH=1 git push
+# =============================================================================
+
+set -euo pipefail
+
+# --- バイパス ---
+if [ "${SKIP_HOOKS:-0}" = "1" ] || [ "${SKIP_PRE_PUSH:-0}" = "1" ]; then
+  echo "[pre-push] スキップされました"
+  exit 0
+fi
+
+EXIT_CODE=0
+
+# =============================================================================
+# 1. シークレットスキャン（全プロジェクト共通）
+# =============================================================================
+echo "[pre-push] シークレットスキャンを実行中..."
+
+# push 対象のコミット範囲を取得
+REMOTE="$1"
+URL="$2"
+while read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+  if [ "$LOCAL_SHA" = "0000000000000000000000000000000000000000" ]; then
+    continue  # ブランチ削除の場合はスキップ
+  fi
+
+  # ファイルリストを null 区切りで取得（スペース入りファイル名に対応）
+  if [ "$REMOTE_SHA" = "0000000000000000000000000000000000000000" ]; then
+    # 新規ブランチ: merge-base 基準で差分を取得
+    MERGE_BASE=$(git merge-base origin/HEAD "$LOCAL_SHA" 2>/dev/null || git merge-base origin/main "$LOCAL_SHA" 2>/dev/null || git merge-base origin/master "$LOCAL_SHA" 2>/dev/null || echo "")
+    if [ -n "$MERGE_BASE" ]; then
+      DIFF_CMD=(git diff -z --name-only --diff-filter=ACM "$MERGE_BASE..$LOCAL_SHA")
+    else
+      DIFF_CMD=(git diff-tree -z --no-commit-id --name-only -r "$LOCAL_SHA")
+    fi
+  else
+    DIFF_CMD=(git diff -z --name-only --diff-filter=ACM "$REMOTE_SHA..$LOCAL_SHA")
+  fi
+
+  # null 区切りでファイルを走査し、シークレットパターンを検索
+  SECRETS_FOUND=$("${DIFF_CMD[@]}" 2>/dev/null | while IFS= read -r -d '' file; do
+    if [ -f "$file" ]; then
+      # API キー、トークン、パスワードなどのパターン
+      grep -nEi \
+        '(api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token|private[_-]?key|password|passwd|secret[_-]?key)\s*[:=]\s*["\x27][A-Za-z0-9+/=_-]{8,}' \
+        "$file" 2>/dev/null | while read -r match; do
+          echo "  $file: $match"
+        done
+      # AWS Access Key 形式（AKIA: 長期キー、ASIA: STS 一時クレデンシャル）
+      grep -nE \
+        '(AKIA|ASIA)[0-9A-Z]{16}' \
+        "$file" 2>/dev/null | grep -vi 'test\|example\|sample\|dummy\|placeholder' | while read -r match; do
+          echo "  $file: $match"
+        done
+    fi
+  done || true)
+
+  if [ -n "$SECRETS_FOUND" ]; then
+    echo ""
+    echo "[pre-push] シークレットの可能性がある文字列を検出しました:"
+    echo "$SECRETS_FOUND"
+    echo ""
+    echo "[pre-push] 誤検知の場合は SKIP_PRE_PUSH=1 git push でスキップしてください。"
+    EXIT_CODE=1
+  fi
+done
+
+# シークレットスキャンで失敗していたら早期終了
+if [ $EXIT_CODE -ne 0 ]; then
+  exit $EXIT_CODE
+fi
+
+# =============================================================================
+# 2. テスト実行（プロジェクト種別を自動検出）
+# =============================================================================
+
+TESTS_RAN=0
+
+# --- Node.js ---
+if [ -f "package.json" ]; then
+  # package.json に test スクリプトがあるか確認
+  HAS_TEST=$(grep -c '"test"' package.json 2>/dev/null || echo "0")
+  if [ "$HAS_TEST" -gt 0 ]; then
+    # "test": "echo ..." のようなプレースホルダーは除外
+    IS_REAL_TEST=$(grep '"test"' package.json | grep -cv 'echo\|no test\|exit' 2>/dev/null || echo "0")
+    if [ "$IS_REAL_TEST" -gt 0 ]; then
+      echo "[pre-push] npm test を実行中..."
+      npm test 2>&1 || EXIT_CODE=1
+      TESTS_RAN=1
+    fi
+  fi
+fi
+
+# --- Python ---
+if [ $TESTS_RAN -eq 0 ]; then
+  if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ] || [ -f "requirements.txt" ]; then
+    if command -v pytest >/dev/null 2>&1; then
+      if [ -d "tests" ] || [ -d "test" ]; then
+        echo "[pre-push] pytest を実行中..."
+        pytest --tb=short -q 2>&1 || EXIT_CODE=1
+        TESTS_RAN=1
+      fi
+    elif command -v python >/dev/null 2>&1; then
+      if [ -d "tests" ] || [ -d "test" ]; then
+        echo "[pre-push] python -m unittest を実行中..."
+        python -m unittest discover -s tests -q 2>&1 || EXIT_CODE=1
+        TESTS_RAN=1
+      fi
+    fi
+  fi
+fi
+
+# --- Go ---
+if [ $TESTS_RAN -eq 0 ]; then
+  if [ -f "go.mod" ]; then
+    if command -v go >/dev/null 2>&1; then
+      echo "[pre-push] go test を実行中..."
+      go test ./... -short -count=1 2>&1 || EXIT_CODE=1
+      TESTS_RAN=1
+    fi
+  fi
+fi
+
+# --- テストランナーが見つからなかった場合 ---
+if [ $TESTS_RAN -eq 0 ]; then
+  echo "[pre-push] テストランナーが検出されませんでした（スキップ）"
+fi
+
+# --- 結果 ---
+if [ $EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "[pre-push] チェックに失敗しました。修正してから再度 push してください。"
+  echo "[pre-push] スキップするには: SKIP_PRE_PUSH=1 git push"
+fi
+
+exit $EXIT_CODE

@@ -5,11 +5,15 @@
 
 `.claude/` フォルダをコピーするだけで、Claude Code に日本語の開発ワークフローが追加されるキットです。
 
+**v3.0.0 で全40スキル＋Git Hooks を無料化しました。**
+
 > **このキットのスキルは手動呼び出し専用です。** Claude が自発的に提案することはありません。使いたいスキルは `/skill-name` で直接呼び出してください。
 
-### 関連記事
+### 関連リンク
 
 - [Claude Code の使い方・スキル解説（Zenn）](https://zenn.dev/ga14tools)
+- [BOOTH 無料ダウンロード](https://ga14tools.booth.pm/items/7984292)
+- [Zenn Book — Claude Code 実務ワークショップ（500円）](https://zenn.dev/ga14tools/books/claude-code-workshop)
 
 ---
 
@@ -60,7 +64,7 @@ Copy-Item CLAUDE.md \path\to\your-project\CLAUDE.md
 
 ---
 
-## 全10スキル早見表
+## 全40スキル早見表
 
 ### バグ調査（2個）
 
@@ -102,6 +106,93 @@ Copy-Item CLAUDE.md \path\to\your-project\CLAUDE.md
 |-------|------|
 | `/incident-debug` | 本番障害の総合調査フロー（fork で分離実行） |
 
+### API 設計・レビュー（7個）
+
+| スキル | 概要 |
+|-------|------|
+| `/api-auth-review` | API 認証・認可の設計レビュー |
+| `/api-client-sdk-notes` | SDK 利用者向けの注意事項・変更点メモを生成 |
+| `/api-endpoint-design` | RESTful エンドポイントの設計レビュー |
+| `/api-error-contract` | API エラーレスポンスの契約（フォーマット・コード体系）を策定 |
+| `/api-openapi-diff` | OpenAPI スキーマの差分を検出し破壊的変更を警告 |
+| `/api-pagination-standard` | ページネーション方式の標準化レビュー |
+| `/api-versioning-plan` | API バージョニング戦略の策定 |
+
+### CI/CD（5個）
+
+| スキル | 概要 |
+|-------|------|
+| `/ci-coverage-gate` | カバレッジ閾値のゲート設計・設定レビュー |
+| `/ci-flaky-triage` | 不安定テスト（Flaky Test）の原因調査と対策 |
+| `/ci-test-matrix` | テストマトリクス（OS・言語バージョン等）の設計 |
+| `/ci-workflow-add` | CI ワークフロー（GitHub Actions 等）の新規作成 |
+| `/ci-workflow-fix` | CI ワークフローのエラー修正・最適化 |
+
+### データベース（7個）
+
+| スキル | 概要 |
+|-------|------|
+| `/db-backfill-plan` | データバックフィル（既存データの一括更新）計画を策定 |
+| `/db-index-suggest` | クエリパターンに基づくインデックス追加を提案 |
+| `/db-migration-draft` | マイグレーションファイルのドラフト作成 |
+| `/db-migration-review` | マイグレーションの安全性レビュー（ロック・互換性・ロールバック） |
+| `/db-query-review` | SQL/ORM クエリのパフォーマンス・安全性レビュー |
+| `/db-schema-review` | データベーススキーマの設計レビュー |
+| `/db-seed-data-plan` | 開発・テスト用シードデータの設計 |
+
+### 運用・監視（3個）
+
+| スキル | 概要 |
+|-------|------|
+| `/ops-alert-design` | アラートルールの設計（閾値・通知先・エスカレーション） |
+| `/ops-log-sift` | ログから異常パターンを検出・分析 |
+| `/ops-metric-plan` | メトリクス収集・ダッシュボード設計の計画策定 |
+
+### フロントエンド（2個）
+
+| スキル | 概要 |
+|-------|------|
+| `/fe-a11y-audit` | アクセシビリティ（WCAG）監査 |
+| `/fe-performance-review` | フロントエンドパフォーマンスのレビュー（Core Web Vitals 等） |
+
+### その他（6個）
+
+| スキル | 概要 |
+|-------|------|
+| `/dependency-update-plan` | 依存パッケージの更新計画（リスク評価・優先順位付け） |
+| `/deploy-script-review` | デプロイスクリプトのレビュー（安全性・冪等性） |
+| `/postmortem-write` | インシデントのポストモーテム（振り返り文書）を作成 |
+| `/quality-checklist-gen` | プロジェクト固有の品質チェックリストを生成 |
+| `/release-tag-plan` | リリースタグ・バージョニングの運用計画を策定 |
+| `/team-adoption-plan` | チームへのツール・プラクティス導入計画を策定 |
+
+---
+
+## Git Hooks（3個）
+
+`hooks/` ディレクトリに、すぐ使える Git Hooks を同梱しています。
+
+| Hook | 概要 |
+|------|------|
+| `pre-commit` | コミット前に lint・format・型チェックを自動実行（Node.js / Python / Go 対応） |
+| `pre-push` | プッシュ前にシークレットスキャン＋テストを実行 |
+| `commit-msg` | コミットメッセージが Conventional Commits 形式かチェック（警告のみ） |
+
+### Hooks の導入方法
+
+```bash
+# プロジェクトの .git/hooks/ にコピー
+cp hooks/* /path/to/your-project/.git/hooks/
+chmod +x /path/to/your-project/.git/hooks/*
+```
+
+```powershell
+# Windows (PowerShell) — chmod は不要（Git Bash がシェバンを認識）
+Copy-Item hooks\* \path\to\your-project\.git\hooks\
+```
+
+**安全に使うための注意事項は [HOOKS_SAFETY.md](HOOKS_SAFETY.md) を必ずお読みください。**
+
 ---
 
 ## 困ったらこれフローチャート
@@ -117,7 +208,15 @@ PR を出したい → /pr-quality-gate → /pr-write
 
 リファクタしたい → /refactor-plan → 実行 → /test-add
 
-本番障害が起きた → /incident-debug
+本番障害が起きた → /incident-debug → /postmortem-write
+
+API を設計したい → /api-endpoint-design → /api-auth-review → /api-error-contract
+
+DB を変更したい → /db-schema-review → /db-migration-draft → /db-migration-review
+
+CI を整備したい → /ci-workflow-add → /ci-test-matrix → /ci-coverage-gate
+
+リリースしたい → /release-tag-plan → /deploy-script-review
 ```
 
 ---
@@ -192,6 +291,10 @@ SKILL.md の指示は日本語で書かれていますが、Claude が英語で�
 ### settings.json の deny が効かない
 
 Claude Code の permissions.deny には既知の不安定な動作が報告されています。deny はベストエフォートの防御として使い、秘密情報は `.gitignore` で管理し、環境変数で扱うことを推奨します。
+
+### hooks がうまく動かない
+
+[HOOKS_SAFETY.md](HOOKS_SAFETY.md) の「トラブルシューティング」セクションを確認してください。Windows 環境では `chmod +x` が不要な場合があります。
 
 ---
 
